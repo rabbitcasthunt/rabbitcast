@@ -1,8 +1,4 @@
-// RabbitCast Stripe Checkout Function
-// Uses fetch directly instead of Stripe SDK — no dependencies needed
-
 exports.handler = async (event) => {
-  // Handle preflight CORS
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -31,7 +27,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Build form data for Stripe API
     const params = new URLSearchParams();
     params.append("mode", mode);
     params.append("line_items[0][price]", priceId);
@@ -40,7 +35,6 @@ exports.handler = async (event) => {
     params.append("cancel_url", "https://rabbitcast.net/app.html?payment=cancelled");
     if (customerEmail) params.append("customer_email", customerEmail);
 
-    // Call Stripe API directly via fetch — no SDK needed
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
