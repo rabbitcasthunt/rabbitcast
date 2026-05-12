@@ -37,27 +37,23 @@ const sb = {
 };
 
 // ─── STRIPE CHECKOUT ──────────────────────────────────────────────────────────
-// Loads Stripe.js and redirects to hosted checkout page
+// Calls our Netlify serverless function which creates a Stripe checkout session
 async function goToCheckout(priceId, email) {
-  // Dynamically load Stripe.js if not already loaded
-  if (!window.Stripe) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://js.stripe.com/v3/";
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-  const stripe = window.Stripe(STRIPE_PK);
-  const { error } = await stripe.redirectToCheckout({
-    lineItems: [{ price: priceId, quantity: 1 }],
-    mode: priceId === PRICES.day ? "payment" : "subscription",
-    customerEmail: email || undefined,
-    successUrl: `${window.location.href}?payment=success`,
-    cancelUrl:  `${window.location.href}?payment=cancelled`,
+  const mode = priceId === PRICES.day ? "payment" : "subscription";
+  
+  const res = await fetch("/.netlify/functions/create-checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ priceId, mode, customerEmail: email || null }),
   });
-  if (error) throw new Error(error.message);
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Checkout failed");
+  }
+
+  const { url } = await res.json();
+  window.location.href = url; // Redirect to Stripe hosted checkout page
 }
 
 // ─── WEATHER / SCORING ────────────────────────────────────────────────────────
