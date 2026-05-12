@@ -1,4 +1,4 @@
-exports.handler = async (event) => {
+../exports.handler = async (event) => {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   
   return {
