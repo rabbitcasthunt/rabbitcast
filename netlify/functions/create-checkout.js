@@ -1,24 +1,60 @@
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+// RabbitCast Stripe Checkout Function
+// Uses fetch directly instead of Stripe SDK — no dependencies needed
 
 exports.handler = async (event) => {
-  // Only allow POST requests
+  // Handle preflight CORS
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+      body: "",
+    };
+  }
+
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
     const { priceId, mode, customerEmail } = JSON.parse(event.body);
+    const secretKey = process.env.STRIPE_SECRET_KEY;
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: mode, // "payment" for day pass, "subscription" for pro hunter
-      customer_email: customerEmail || undefined,
-      success_url: `https://rabbitcast.net?payment=success`,
-      cancel_url:  `https://rabbitcast.net?payment=cancelled`,
-      billing_address_collection: "auto",
+    if (!secretKey) {
+      return {
+        statusCode: 500,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Stripe key not configured" }),
+      };
+    }
+
+    // Build form data for Stripe API
+    const params = new URLSearchParams();
+    params.append("mode", mode);
+    params.append("line_items[0][price]", priceId);
+    params.append("line_items[0][quantity]", "1");
+    params.append("success_url", "https://rabbitcast.net/app.html?payment=success");
+    params.append("cancel_url", "https://rabbitcast.net/app.html?payment=cancelled");
+    if (customerEmail) params.append("customer_email", customerEmail);
+
+    // Call Stripe API directly via fetch — no SDK needed
+    const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${secretKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
     });
+
+    const session = await response.json();
+
+    if (session.error) {
+      throw new Error(session.error.message);
+    }
 
     return {
       statusCode: 200,
@@ -30,7 +66,7 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error("Stripe error:", error);
+    console.error("Checkout error:", error);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
