@@ -1,8 +1,0 @@
-{
-  "name": "rabbitcast",
-  "version": "1.0.0",
-  "description": "RabbitCast — Know Before You Go",
-  "dependencies": {
-    "stripe": "^14.0.0"
-  }
-}
